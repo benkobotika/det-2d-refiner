@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "drf"
+version = "0.1.0"
+description = "Enhances 2D object detection bounding boxes and masks with inference-time techniques."
+authors = [{ name = "Botond Benkő", email = "benkobotika@yahoo.com" }]
+readme = "README.md"
+requires-python = ">=3.12"
+
+dependencies = [
+  "Pillow>=12.1,<13",
+  "opencv-python>=4.13,<5",
+  "tqdm>=4.67,<5",
+  "pycocotools>=2.0,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["drf", "drf.*"]

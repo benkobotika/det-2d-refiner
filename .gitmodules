@@ -1,12 +1,9 @@
-[submodule "src/modules/det-2d-sam3"]
-    path = src/modules/det-2d-sam3
-    url = https://github.com/retinaris/det-2d-sam3.git
-    branch = main
-[submodule "src/modules/real-esrgan-image-enhancer"]
-    path = src/modules/real-esrgan-image-enhancer
-    url = https://github.com/retinaris/real-esrgan-image-enhancer.git
-    branch = main
-[submodule "src/modules/det-2d-depth-anything-v2"]
-    path = src/modules/det-2d-depth-anything-v2
-    url = https://github.com/retinaris/det-2d-depth-anything-v2.git
-    branch = main
+[submodule "modules/det-2d-sam3"]
+	path = modules/det-2d-sam3
+	url = https://github.com/retinaris/det-2d-sam3.git
+[submodule "modules/real-esrgan-image-enhancer"]
+	path = modules/real-esrgan-image-enhancer
+	url = https://github.com/retinaris/real-esrgan-image-enhancer.git
+[submodule "modules/det-2d-depth-anything-v2"]
+	path = modules/det-2d-depth-anything-v2
+	url = https://github.com/retinaris/det-2d-depth-anything-v2.git
