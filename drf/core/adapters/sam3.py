@@ -1,8 +1,11 @@
 import httpx
 import json
+import io
+import PIL.Image
 from typing import Dict, Any
 
 from drf.core.dtypes.prediction_2d import Prediction2D
+from drf.core.dtypes.image_metadata import ImageMetadata
 
 class SAM3:
     def __init__(self, base_url: str = None, port: int = 8002):
@@ -13,7 +16,7 @@ class SAM3:
 
     def inference(
         self, 
-        image: bytes,
+        image: PIL.Image.Image,
         prompt: str = None, 
         box: list = None
     ) -> Prediction2D:
@@ -27,20 +30,25 @@ class SAM3:
         else:
             raise ValueError("Provide 'prompt' or 'box'")
 
-        files = {"image": ("img.jpg", image, "image/jpeg")}
+        img_bytes_io = io.BytesIO()
+        image.save(img_bytes_io, format='JPEG')
+        img_bytes_io.seek(0)
+
+        files = {"image": ("img.jpg", img_bytes_io, "image/jpeg")}
         
         response = self.client.post(self.inference_url, files=files, data=data)
         response.raise_for_status()
             
-        return self._adapt(response.json(), label)
+        return self._adapt(response.json(), image, label)
 
-    def _adapt(self, data: Dict[str, Any], label: str) -> Prediction2D:
+    def _adapt(self, data: Dict[str, Any], image: PIL.Image.Image, label: str) -> Prediction2D:
         bboxes = data.get("boxes", [])
         return Prediction2D(
             bboxes=bboxes,
             labels=[label] * len(bboxes),
             bbox_scores=data.get("scores", []),
-            masks=data.get("masks", [])
+            masks=data.get("masks", []),
+            image_metadata=ImageMetadata(width=image.width, height=image.height)
         )
 
     def close(self):
