@@ -11,7 +11,8 @@ from drf.utils.logger import Logger
 class CocoVisualizer:
     logger = Logger("CocoVisualizer")
 
-    def __init__(self, image_dir, output_dir, alpha=0.4, show_masks=True, show_boxes=True, instance_mode=False):
+    def __init__(self, image_dir: str, output_dir: str, alpha: float = 0.4,
+                 show_masks: bool = True, show_boxes: bool = True, instance_mode: bool = False):
         self.image_dir = image_dir
         self.output_dir = output_dir
         self.alpha = alpha
@@ -24,22 +25,22 @@ class CocoVisualizer:
             shutil.rmtree(self.output_dir)
         os.makedirs(self.output_dir)
 
-    def _get_color(self, seed_id):
+    def _get_color(self, seed_id: int) -> tuple:
         hue = (seed_id * 137.5) % 180 # using golden angle to distribute colors
         hsv = np.uint8([[[hue, 200, 255]]]) # high saturation and value
         bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)[0][0]
         return tuple(map(int, bgr))
 
-    def _get_cat_color(self, cat_id):
+    def _get_cat_color(self, cat_id: int) -> tuple:
         if cat_id not in self.category_colors:
             self.category_colors[cat_id] = self._get_color(cat_id)
         return self.category_colors[cat_id]
 
-    def _get_text_color(self, bg_color):
+    def _get_text_color(self, bg_color: tuple) -> tuple:
         brightness = (bg_color[0] * 0.10 + bg_color[1] * 0.60 + bg_color[2] * 0.30) # calculate perceived brightness
         return (0, 0, 0) if brightness > 128 else (255, 255, 255)
 
-    def _draw_annotations(self, image, annotations, coco, title):
+    def _draw_annotations(self, image: np.ndarray, annotations: list, coco: COCO, title: str) -> np.ndarray:
         vis_image = image.copy()
         
         # 1. Draw Masks
@@ -81,7 +82,7 @@ class CocoVisualizer:
         
         return cv2.vconcat([header, vis_image])
 
-    def run(self, coco_paths):
+    def run(self, coco_paths: list[str]):
         coco_objects = {os.path.basename(p): COCO(p) for p in coco_paths}
         ref_coco = list(coco_objects.values())[0]
         img_ids = ref_coco.getImgIds()

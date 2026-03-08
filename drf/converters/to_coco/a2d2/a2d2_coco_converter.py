@@ -21,7 +21,7 @@ class A2D2CocoConverter:
         7: "tractor"
     }
 
-    def __init__(self, root_dir, target_folder_segment):
+    def __init__(self, root_dir: str, target_folder_segment: str):
         self.root_dir = root_dir
         self.target_folder_segment = target_folder_segment
         self.categories = self._create_category_annotations()
@@ -36,7 +36,7 @@ class A2D2CocoConverter:
             })
         return categories
 
-    def _process_folder(self, folder_path):
+    def _process_folder(self, folder_path: str) -> str:
         coco_output = {
             "images": [],
             "annotations": [],
