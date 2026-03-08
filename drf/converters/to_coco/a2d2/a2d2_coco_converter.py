@@ -97,7 +97,7 @@ class A2D2CocoConverter:
 
         return output_path
 
-    def run(self):
+    def convert(self):
         found_folders = []
         for root, _, _ in os.walk(self.root_dir):
             if self.target_folder_segment in root and root.endswith(self.target_folder_segment):
@@ -116,11 +116,11 @@ def main():
     parser.add_argument('--target_segment', type=str, default=os.path.join("instance", "cam_front_center"))
     args = parser.parse_args()
 
-    generator = A2D2CocoConverter(
+    converter = A2D2CocoConverter(
         root_dir=args.root_dir,
         target_folder_segment=args.target_segment
     )
-    generator.run()
+    converter.convert()
 
 if __name__ == '__main__':
     main()
