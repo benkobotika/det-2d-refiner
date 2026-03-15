@@ -1,5 +1,4 @@
 import httpx
-import json
 import io
 import PIL.Image
 from typing import Dict, Any
@@ -10,25 +9,16 @@ from drf.core.dtypes.image_metadata import ImageMetadata
 class SAM3:
     def __init__(self, base_url: str = None, port: int = 8002):
         if base_url is None:
-            base_url = f"http://localhost:{port}"
+            base_url = f"http://127.0.0.1:{port}"
         self.inference_url = f"{base_url.rstrip('/')}/segment"
         self.client = httpx.Client(timeout=60.0)
 
-    def inference(
+    def run(
         self, 
         image: PIL.Image.Image,
-        prompt: str = None, 
-        box: list = None
+        prompt: str, 
     ) -> Prediction2D:
-        data = {}
-        if prompt:
-            data["text_prompt"] = prompt
-            label = prompt
-        elif box:
-            data["box_prompt"] = json.dumps(box)
-            label = None
-        else:
-            raise ValueError("Provide 'prompt' or 'box'")
+        data = {"text_prompt": prompt}
 
         img_bytes_io = io.BytesIO()
         image.save(img_bytes_io, format='JPEG')
@@ -39,10 +29,11 @@ class SAM3:
         response = self.client.post(self.inference_url, files=files, data=data)
         response.raise_for_status()
             
-        return self._adapt(response.json(), image, label)
+        return self._adapt(response.json(), image, prompt)
 
     def _adapt(self, data: Dict[str, Any], image: PIL.Image.Image, label: str) -> Prediction2D:
         bboxes = data.get("boxes", [])
+
         return Prediction2D(
             bboxes=bboxes,
             labels=[label] * len(bboxes),
@@ -53,3 +44,9 @@ class SAM3:
 
     def close(self):
         self.client.close()
+    
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.close()
