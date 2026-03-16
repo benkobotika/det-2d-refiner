@@ -8,7 +8,7 @@ from pycocotools.cocoeval import COCOeval
 
 
 class COCOEvaluator:
-    METRIC_NAMES = [
+    COCO_METRIC_NAMES = [
         "AP_50_95",
         "AP_50",
         "AP_75",
@@ -36,7 +36,7 @@ class COCOEvaluator:
 
         self.class_results = []
 
-    def _extract_counts(self, coco_eval):
+    def _extract_general_metrics(self, coco_eval):
         iou_idx = 5  # 0.75 IoU threshold index
         gt_count = tp = fp = 0
         all_area = coco_eval.params.areaRng[0]
@@ -57,6 +57,8 @@ class COCOEvaluator:
 
         fn = gt_count - tp
         pred_count = tp + fp
+        precision = tp / pred_count if pred_count > 0 else 1
+        recall = tp / gt_count if gt_count > 0 else 1
 
         return {
             "GT": gt_count,
@@ -64,13 +66,15 @@ class COCOEvaluator:
             "TP_75": tp,
             "FP_75": fp,
             "FN_75": fn,
+            "Precision_75": precision,
+            "Recall_75": recall,
         }
 
     def _extract_stats(self, coco_eval, iou_type, cls="all"):
         stats = {"IoU_Type": iou_type, "Class": cls}
-        stats.update(self._extract_counts(coco_eval))
+        stats.update(self._extract_general_metrics(coco_eval))
         stats.update(
-            {name: coco_eval.stats[i] for i, name in enumerate(self.METRIC_NAMES)}
+            {name: coco_eval.stats[i] for i, name in enumerate(self.COCO_METRIC_NAMES)}
         )
         return stats
 
@@ -116,7 +120,9 @@ class COCOEvaluator:
                 "TP_75",
                 "FP_75",
                 "FN_75",
-            ] + self.METRIC_NAMES
+                "Precision_75",
+                "Recall_75",
+            ] + self.COCO_METRIC_NAMES
             df = df[cols]
             df.to_csv(output_csv, index=False)
 
