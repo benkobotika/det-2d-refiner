@@ -1,0 +1,7 @@
+services:
+  sam3:
+    adapter_class: SAM3
+    init_kwargs:
+      port: 8002
+    run_kwargs:
+      prompt: car
