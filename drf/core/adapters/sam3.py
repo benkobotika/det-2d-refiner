@@ -30,16 +30,12 @@ class SAM3:
         response = self.client.post(self.inference_url, files=files, data=data)
         response.raise_for_status()
 
-        return self._adapt(response.json(), image, prompt)
+        return self._adapt(response.json(), image)
 
-    def _adapt(
-        self, data: Dict[str, Any], image: PIL.Image.Image, label: str
-    ) -> Prediction2D:
-        bboxes = data.get("boxes", [])
-
+    def _adapt(self, data: Dict[str, Any], image: PIL.Image.Image) -> Prediction2D:
         return Prediction2D(
-            bboxes=bboxes,
-            labels=[label] * len(bboxes),
+            bboxes=data.get("boxes", []),
+            labels=data.get("classes", []),
             bbox_scores=data.get("scores", []),
             masks=data.get("masks", []),
             image_metadata=ImageMetadata(width=image.width, height=image.height),
