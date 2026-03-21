@@ -5,6 +5,7 @@ from tqdm import tqdm
 
 from drf.core.img_service_runner import ImgServiceRunner
 from drf.core.adapters.sam3 import SAM3
+from drf.core.adapters.rfdetr import RFDETR
 from drf.converters.to_coco.a2d2.drf_coco_converter import DRFCOCOConverter
 from drf.utils.config import Config
 from drf.utils.logger import Logger
@@ -72,7 +73,7 @@ def main():
 
         for img_path in tqdm(image_paths, desc="Processing images"):
             img = Image.open(img_path)
-            pred = runner.run("sam3", img, **config.services.sam3.run_kwargs)
+            pred = runner.run("rfdetr", img, **config.services.rfdetr.run_kwargs)
             pred.image_metadata.name = img_path.name
             predictions.append(pred)
 

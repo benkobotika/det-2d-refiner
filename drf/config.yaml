@@ -5,3 +5,9 @@ services:
       port: 8002
     run_kwargs:
       prompt: car
+  rfdetr:
+    adapter_class: RFDETR
+    init_kwargs:
+      port: 8000
+    run_kwargs:
+      confidence: 0.5
