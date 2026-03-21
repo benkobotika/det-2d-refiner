@@ -7,3 +7,6 @@
 [submodule "modules/det-2d-depth-anything-v2"]
 	path = modules/det-2d-depth-anything-v2
 	url = https://github.com/retinaris/det-2d-depth-anything-v2.git
+[submodule "modules/det-2d-rfdetr"]
+	path = modules/det-2d-rfdetr
+	url = https://github.com/retinaris/det-2d-rfdetr.git
