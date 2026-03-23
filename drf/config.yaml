@@ -1,13 +1,17 @@
 services:
-  sam3:
-    adapter_class: SAM3
-    init_kwargs:
-      port: 8002
-    run_kwargs:
-      prompt: car
   rfdetr:
     adapter_class: RFDETR
     init_kwargs:
       port: 8000
     run_kwargs:
       confidence: 0.5
+  sam3:
+    adapter_class: SAM3
+    init_kwargs:
+      port: 8002
+    run_kwargs:
+      prompt: car
+  real_esrgan:
+    adapter_class: RealESRGAN
+    init_kwargs:
+      port: 8001
