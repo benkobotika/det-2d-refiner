@@ -48,37 +48,54 @@ class Inference:
             image_metadata=ImageMetadata(width=orig_w, height=orig_h)
         )
 
-        variants = [(img, False, 1.0)]
+        # 1. Generate image variants (TTA)
+        variants = self._get_image_variants(img, orig_w, orig_h)
 
-        if self.use_tta:
-            # 1. Horizontal Flip
-            variants.append((ImageOps.mirror(img), True, 1.0))
-
-            # 2. Multi-Scale
-            for scale in [0.8, 1.2]:
-                new_size = (int(orig_w * scale), int(orig_h * scale))
-                scaled_img = img.resize(new_size, Image.Resampling.BILINEAR)
-                variants.append((scaled_img, False, scale))
-
-            # 3. Brightness adjustment
-            enhancer = ImageEnhance.Brightness(img)
-            variants.append((enhancer.enhance(0.8), False, 1.0))
-            variants.append((enhancer.enhance(1.2), False, 1.0))
-
+        # 2. Run inference on all variants
         for current_img, is_flipped, scale in variants:
             pred = self.runner.run(
                 "rfdetr", current_img, **self.config.services.rfdetr.run_kwargs
             )
 
             if is_flipped or scale != 1.0:
-                pred = self._normalize_coordinates(pred, orig_w, is_flipped, scale)
+                pred = self._normalize_coordinates(
+                    pred, orig_w, orig_h, is_flipped, scale
+                )
 
             self._append_predictions(final_pred, pred)
 
         return self._apply_nms(final_pred)
 
+    def _get_image_variants(self, img, w, h):
+        variants = [(img, False, 1.0)]
+        if not self.use_tta:
+            return variants
+
+        # Horizontal Flip
+        variants.append((ImageOps.mirror(img), True, 1.0))
+
+        # Multi-Scale
+        for scale in [0.8, 1.2]:
+            new_size = (int(w * scale), int(h * scale))
+            variants.append(
+                (img.resize(new_size, Image.Resampling.BILINEAR), False, scale)
+            )
+
+        # Brightness
+        enhancer = ImageEnhance.Brightness(img)
+        variants.extend(
+            [(enhancer.enhance(0.8), False, 1.0), (enhancer.enhance(1.2), False, 1.0)]
+        )
+
+        return variants
+
     def _normalize_coordinates(
-        self, pred: Prediction2D, orig_w: int, is_flipped: bool, scale: float
+        self,
+        pred: Prediction2D,
+        orig_w: int,
+        orig_h: int,
+        is_flipped: bool,
+        scale: float,
     ) -> Prediction2D:
         new_bboxes = []
         for x, y, w, h in pred.bboxes:
@@ -98,11 +115,13 @@ class Inference:
             m = mask_utils.decode(mask)
 
             # Undo Scale
-            if scale != 1.0:
-                m_img = Image.fromarray(m).resize(
-                    (orig_w, int(m.shape[0] / scale)), Image.Resampling.NEAREST
+            if m.shape != (orig_h, orig_w):
+                m = np.array(
+                    Image.fromarray(m).resize(
+                        (orig_w, orig_h),
+                        Image.Resampling.NEAREST,
+                    )
                 )
-                m = np.array(m_img)
 
             # Undo Flip
             if is_flipped:
