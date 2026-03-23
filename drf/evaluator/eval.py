@@ -23,7 +23,8 @@ class COCOEvaluator:
         "AR_L",
     ]
 
-    def __init__(self, gt_path, pred_path):
+    def __init__(self, gt_path, pred_path, size_thresholds=[32, 96]):
+        self.size_thresholds = size_thresholds
         original_stdout = sys.stdout
         sys.stdout = io.StringIO()
         try:
@@ -36,15 +37,23 @@ class COCOEvaluator:
 
         self.class_results = []
 
+    def _set_custom_bins(self, coco_eval):
+        s, m = self.size_thresholds
+        coco_eval.params.areaRng = [
+            [0**2, 1e5**2],  # All
+            [0**2, s**2],  # Small
+            [s**2, m**2],  # Medium
+            [m**2, 1e5**2],  # Large
+        ]
+        coco_eval.params.areaRngLbl = ["all", "small", "medium", "large"]
+
     def _extract_general_metrics(self, coco_eval):
         iou_idx = 5  # 0.75 IoU threshold index
         gt_count = tp = fp = 0
         all_area = coco_eval.params.areaRng[0]
 
         for ev in coco_eval.evalImgs:
-            if ev is None:
-                continue
-            if ev["aRng"] != all_area:
+            if ev is None or ev["aRng"] != all_area:
                 continue
 
             gt_count += len(ev["gtIds"])
@@ -86,6 +95,8 @@ class COCOEvaluator:
             try:
                 # Global Evaluation
                 coco_eval = COCOeval(self.coco_gt, self.coco_pred, iou_type)
+                self._set_custom_bins(coco_eval)
+
                 coco_eval.evaluate()
                 coco_eval.accumulate()
                 coco_eval.summarize()
@@ -99,6 +110,8 @@ class COCOEvaluator:
 
                 for c_id, c_name in categories.items():
                     c_eval = COCOeval(self.coco_gt, self.coco_pred, iou_type)
+                    self._set_custom_bins(c_eval)
+
                     c_eval.params.catIds = [c_id]
                     c_eval.evaluate()
                     c_eval.accumulate()
@@ -138,10 +151,18 @@ def main():
     parser.add_argument(
         "--out", type=str, default="evaluation_results.csv", help="Output CSV filename"
     )
+    parser.add_argument(
+        "--size_thresholds",
+        type=int,
+        nargs=2,
+        default=[32, 96],
+        help="Two integers defining the square root of area for S/M and M/L boundaries."
+        "Default: 32 96 (standard COCO).",
+    )
 
     args = parser.parse_args()
 
-    evaluator = COCOEvaluator(args.gt, args.pred)
+    evaluator = COCOEvaluator(args.gt, args.pred, size_thresholds=args.size_thresholds)
     evaluator.run()
     evaluator.save_results(args.out)
 
