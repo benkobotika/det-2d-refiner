@@ -246,25 +246,25 @@ class Inference:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Inference-time ML-model quality optimization pipeline."
+        description="Inference-time ML-model quality optimization pipeline"
     )
     parser.add_argument(
-        "-i", "--input_dir", type=str, required=True, help="Input images directory."
+        "-i", "--input_dir", type=str, required=True, help="Input images directory"
     )
     parser.add_argument(
-        "-o", "--output_path", type=str, required=True, help="Output COCO JSON path."
+        "-o", "--output_path", type=str, required=True, help="Output COCO JSON path"
     )
     parser.add_argument(
-        "-c", "--config", type=str, required=True, help="Path to YAML config."
+        "-c", "--config", type=str, required=True, help="Path to YAML config"
     )
 
     parser.add_argument(
-        "--iou_threshold", type=float, default=0.75, help="IoU threshold for NMS."
+        "--iou_threshold", type=float, default=0.75, help="IoU threshold for NMS"
     )
     parser.add_argument(
         "--tta",
         action="store_true",
-        help="Enable Multi-stage TTA (Flip, Scale, Brightness)",
+        help="Enable TTA (Test-Time Augmentation)",
     )
     parser.add_argument(
         "--upscale",
