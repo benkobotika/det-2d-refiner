@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "drf"
 version = "0.1.0"
-description = "Enhances 2D object detection bounding boxes and masks with inference-time techniques."
+description = "Inference-Time Optimization for Object Detection"
 authors = [{ name = "Botond Benkő", email = "benkobotika@yahoo.com" }]
 readme = "README.md"
 requires-python = ">=3.12"

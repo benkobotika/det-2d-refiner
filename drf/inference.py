@@ -1,7 +1,7 @@
 import argparse
 import numpy as np
 from pathlib import Path
-from PIL import Image, ImageOps, ImageEnhance
+from PIL import Image, ImageOps, ImageEnhance, ImageFilter
 from tqdm import tqdm
 from pycocotools import mask as mask_utils
 
@@ -75,7 +75,7 @@ class Inference:
         variants.append((ImageOps.mirror(img), True, 1.0))
 
         # Multi-Scale
-        for scale in [0.8, 1.2]:
+        for scale in [0.75, 1.0, 1.25, 1.5]:
             new_size = (int(w * scale), int(h * scale))
             variants.append(
                 (img.resize(new_size, Image.Resampling.BILINEAR), False, scale)
@@ -84,8 +84,17 @@ class Inference:
         # Brightness
         enhancer = ImageEnhance.Brightness(img)
         variants.extend(
-            [(enhancer.enhance(0.8), False, 1.0), (enhancer.enhance(1.2), False, 1.0)]
+            [(enhancer.enhance(0.7), False, 1.0), (enhancer.enhance(1.3), False, 1.0)]
         )
+
+        # Contrast
+        contrast = ImageEnhance.Contrast(img)
+        variants.extend(
+            [(contrast.enhance(0.8), False, 1.0), (contrast.enhance(1.2), False, 1.0)]
+        )
+
+        # Blur
+        variants.append((img.filter(ImageFilter.GaussianBlur(1)), False, 1.0))
 
         return variants
 
@@ -116,12 +125,11 @@ class Inference:
 
             # Undo Scale
             if m.shape != (orig_h, orig_w):
-                m = np.array(
-                    Image.fromarray(m).resize(
-                        (orig_w, orig_h),
-                        Image.Resampling.NEAREST,
-                    )
+                m = Image.fromarray(m).resize(
+                    (orig_w, orig_h),
+                    Image.Resampling.BILINEAR,
                 )
+                m = (np.array(m) > 0.5).astype(np.uint8)
 
             # Undo Flip
             if is_flipped:
