@@ -29,6 +29,7 @@ class Inference:
 
         self.iou_threshold = args.iou_threshold
         self.use_tta = args.tta
+        self.use_upscale = args.upscale
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
@@ -48,25 +49,33 @@ class Inference:
             image_metadata=ImageMetadata(width=orig_w, height=orig_h)
         )
 
-        # 1. Generate image variants (TTA)
-        variants = self._get_image_variants(img, orig_w, orig_h)
+        # 1. Optional Upscaling
+        if self.use_upscale and img.size[0] <= 1000 and img.size[1] <= 1000:
+            model_scale, img = self.runner.run("real_esrgan", img)
+        else:
+            model_scale = 1.0
 
-        # 2. Run inference on all variants
+        # 2. Generate image variants (TTA)
+        variants = self._get_image_variants(img)
+
+        # 3. Run inference on all variants
         for current_img, is_flipped, scale in variants:
             pred = self.runner.run(
-                "rfdetr", current_img, **self.config.services.rfdetr.run_kwargs
+                "rfdetr",
+                current_img,
+                **self.config.services.rfdetr.run_kwargs,
             )
 
-            if is_flipped or scale != 1.0:
+            if is_flipped or scale * model_scale != 1.0:
                 pred = self._normalize_coordinates(
-                    pred, orig_w, orig_h, is_flipped, scale
+                    pred, orig_w, orig_h, is_flipped, scale * model_scale
                 )
 
             self._append_predictions(final_pred, pred)
 
         return self._apply_nms(final_pred)
 
-    def _get_image_variants(self, img, w, h):
+    def _get_image_variants(self, img):
         variants = [(img, False, 1.0)]
         if not self.use_tta:
             return variants
@@ -76,21 +85,31 @@ class Inference:
 
         # Multi-Scale
         for scale in [0.75, 1.0, 1.25, 1.5]:
-            new_size = (int(w * scale), int(h * scale))
+            new_size = (int(img.width * scale), int(img.height * scale))
             variants.append(
-                (img.resize(new_size, Image.Resampling.BILINEAR), False, scale)
+                (
+                    img.resize(new_size, Image.Resampling.BILINEAR),
+                    False,
+                    scale,
+                )
             )
 
         # Brightness
         enhancer = ImageEnhance.Brightness(img)
         variants.extend(
-            [(enhancer.enhance(0.7), False, 1.0), (enhancer.enhance(1.3), False, 1.0)]
+            [
+                (enhancer.enhance(0.7), False, 1.0),
+                (enhancer.enhance(1.3), False, 1.0),
+            ]
         )
 
         # Contrast
         contrast = ImageEnhance.Contrast(img)
         variants.extend(
-            [(contrast.enhance(0.8), False, 1.0), (contrast.enhance(1.2), False, 1.0)]
+            [
+                (contrast.enhance(0.8), False, 1.0),
+                (contrast.enhance(1.2), False, 1.0),
+            ]
         )
 
         # Blur
@@ -246,6 +265,11 @@ def main():
         "--tta",
         action="store_true",
         help="Enable Multi-stage TTA (Flip, Scale, Brightness)",
+    )
+    parser.add_argument(
+        "--upscale",
+        action="store_true",
+        help="Enable upscaling for images smaller than 1000x1000 (both dimensions)",
     )
     args = parser.parse_args()
     Inference(args).run()

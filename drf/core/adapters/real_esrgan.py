@@ -21,8 +21,9 @@ class RealESRGAN:
         response = self.client.post(self.enhance_url, files=files)
         response.raise_for_status()
 
+        model_scale = float(response.headers.get("Model-Scale"))
         upscaled_image = PIL.Image.open(io.BytesIO(response.content))
-        return upscaled_image
+        return model_scale, upscaled_image
 
     def close(self):
         self.client.close()
