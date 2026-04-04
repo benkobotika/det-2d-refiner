@@ -48,7 +48,11 @@ class COCOEvaluator:
         coco_eval.params.areaRngLbl = ["all", "small", "medium", "large"]
 
     def _extract_general_metrics(self, coco_eval):
-        iou_idx = 5  # 0.75 IoU threshold index
+        iou_threshold = 0.75
+        iou_idx = min(
+            range(len(coco_eval.params.iouThrs)),
+            key=lambda i: abs(coco_eval.params.iouThrs[i] - iou_threshold),
+        )
         gt_count = tp = fp = 0
         all_area = coco_eval.params.areaRng[0]
 
@@ -56,9 +60,14 @@ class COCOEvaluator:
             if ev is None or ev["aRng"] != all_area:
                 continue
 
-            gt_count += len(ev["gtIds"])
+            gt_ignore = ev["gtIgnore"]
+            gt_count += sum(1 for ignored in gt_ignore if not ignored)
+
             dt_matches = ev["dtMatches"][iou_idx]
-            for match in dt_matches:
+            dt_ignore = ev["dtIgnore"][iou_idx]
+            for match, ignored in zip(dt_matches, dt_ignore):
+                if ignored:
+                    continue
                 if match > 0:
                     tp += 1
                 else:
