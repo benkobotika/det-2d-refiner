@@ -27,9 +27,11 @@ class Inference:
         # Initialize the image service runner
         self.runner = ImgServiceRunner()
 
+        # Hyperparameters
         self.iou_threshold = args.iou_threshold
         self.use_tta = args.tta
         self.use_upscale = args.upscale
+        self.mask_voting_threshold = 0.4
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
@@ -57,13 +59,14 @@ class Inference:
 
         # 2. Generate image variants (TTA)
         variants = self._get_image_variants(img)
+        num_variants = len(variants)
 
         # 3. Run inference on all variants
         for current_img, is_flipped, scale in variants:
             pred = self.runner.run(
-                "rfdetr",
+                "sam3",
                 current_img,
-                **self.config.services.rfdetr.run_kwargs,
+                **self.config.services.sam3.run_kwargs,
             )
 
             if is_flipped or scale * model_scale != 1.0:
@@ -73,7 +76,8 @@ class Inference:
 
             self._append_predictions(final_pred, pred)
 
-        return self._apply_nms(final_pred)
+        # 4. Apply Mask Fusion
+        return self._apply_mask_fusion(final_pred, num_variants)
 
     def _get_image_variants(self, img):
         variants = [(img, False, 1.0)]
@@ -112,8 +116,17 @@ class Inference:
             ]
         )
 
+        # Color Saturation
+        enhancer_color = ImageEnhance.Color(img)
+        variants.append((enhancer_color.enhance(1.3), False, 1.0))
+
         # Blur
         variants.append((img.filter(ImageFilter.GaussianBlur(1)), False, 1.0))
+
+        # Sharpening
+        variants.append(
+            (img.filter(ImageFilter.UnsharpMask(radius=2, percent=150)), False, 1.0)
+        )
 
         return variants
 
@@ -170,47 +183,87 @@ class Inference:
         target.bbox_scores.extend(source.bbox_scores)
         target.masks.extend(source.masks)
 
-    def _apply_nms(self, predictions: Prediction2D) -> Prediction2D:
+    def _compute_iou(self, box1, box2):
+        x1, y1, w1, h1 = box1
+        x2, y2, w2, h2 = box2
+
+        xx1 = max(x1, x2)
+        yy1 = max(y1, y2)
+        xx2 = min(x1 + w1, x2 + w2)
+        yy2 = min(y1 + h1, y2 + h2)
+
+        inter_w = max(0, xx2 - xx1)
+        inter_h = max(0, yy2 - yy1)
+        inter_area = inter_w * inter_h
+
+        union_area = (w1 * h1) + (w2 * h2) - inter_area
+        return inter_area / (union_area + 1e-6)
+
+    def _apply_mask_fusion(
+        self, predictions: Prediction2D, num_variants: int
+    ) -> Prediction2D:
         if not predictions.bboxes:
             return predictions
 
-        boxes = np.array(predictions.bboxes)
-        scores = np.array(predictions.bbox_scores)
-        labels = np.array(predictions.labels)
+        unique_labels = set(predictions.labels)
+        fused_pred = Prediction2D(image_metadata=predictions.image_metadata)
 
-        x1, y1 = boxes[:, 0], boxes[:, 1]
-        x2, y2 = boxes[:, 0] + boxes[:, 2], boxes[:, 1] + boxes[:, 3]
-        areas = (x2 - x1) * (y2 - y1)
+        for label in unique_labels:
+            indices = [i for i, l in enumerate(predictions.labels) if l == label]
+            if not indices:
+                continue
 
-        indices = np.argsort(scores)[::-1]
-        keep_indices = []
+            boxes = np.array([predictions.bboxes[i] for i in indices])
+            scores = np.array([predictions.bbox_scores[i] for i in indices])
+            masks = [predictions.masks[i] for i in indices]
 
-        while indices.size > 0:
-            current = indices[0]
-            keep_indices.append(current)
+            sort_idx = np.argsort(scores)[::-1]
+            boxes = boxes[sort_idx]
+            scores = scores[sort_idx]
+            masks = [masks[i] for i in sort_idx]
 
-            if indices.size == 1:
-                break
+            groups = []
+            for i in range(len(boxes)):
+                matched = False
+                for g in groups:
+                    if self._compute_iou(boxes[i], boxes[g[0]]) > self.iou_threshold:
+                        g.append(i)
+                        matched = True
+                        break
+                if not matched:
+                    groups.append([i])
 
-            rest_indices = indices[1:]
+            for g in groups:
+                g_scores = scores[g]
+                g_masks = [masks[i] for i in g]
 
-            xx1 = np.maximum(x1[current], x1[rest_indices])
-            yy1 = np.maximum(y1[current], y1[rest_indices])
-            xx2 = np.minimum(x2[current], x2[rest_indices])
-            yy2 = np.minimum(y2[current], y2[rest_indices])
+                decoded_masks = np.array([mask_utils.decode(m) for m in g_masks])
+                avg_mask = np.mean(decoded_masks, axis=0)
+                fused_mask_np = (avg_mask >= self.mask_voting_threshold).astype(
+                    np.uint8
+                )
 
-            w, h = np.maximum(0, xx2 - xx1), np.maximum(0, yy2 - yy1)
-            inter = w * h
-            iou = inter / (areas[current] + areas[rest_indices] - inter + 1e-6)
-            indices = rest_indices[iou <= self.iou_threshold]
+                if not np.any(fused_mask_np):
+                    continue
 
-        return Prediction2D(
-            bboxes=boxes[keep_indices].tolist(),
-            labels=labels[keep_indices].tolist(),
-            bbox_scores=scores[keep_indices].tolist(),
-            masks=[predictions.masks[i] for i in keep_indices],
-            image_metadata=predictions.image_metadata,
-        )
+                fused_score = np.mean(g_scores) * min(
+                    1.0, (len(g) / (num_variants * 0.5))
+                )
+
+                if fused_score < self.config.services.sam3.run_kwargs.confidence:
+                    continue
+
+                fused_mask = mask_utils.encode(np.asfortranarray(fused_mask_np))
+                fused_mask["counts"] = fused_mask["counts"].decode("utf-8")
+
+                fused_box = mask_utils.toBbox(fused_mask).tolist()
+
+                fused_pred.bboxes.append(fused_box)
+                fused_pred.bbox_scores.append(float(fused_score))
+                fused_pred.labels.append(label)
+                fused_pred.masks.append(fused_mask)
+
+        return fused_pred
 
     def run(self):
         # Validate input directory
@@ -259,7 +312,16 @@ def main():
     )
 
     parser.add_argument(
-        "--iou_threshold", type=float, default=0.75, help="IoU threshold for NMS"
+        "--iou_threshold",
+        type=float,
+        default=0.75,
+        help="IoU threshold for Box Grouping",
+    )
+    parser.add_argument(
+        "--mask_voting_threshold",
+        type=float,
+        default=0.4,
+        help="Pixel voting threshold for mask fusion",
     )
     parser.add_argument(
         "--tta",

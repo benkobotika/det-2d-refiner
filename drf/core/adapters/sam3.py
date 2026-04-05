@@ -18,13 +18,14 @@ class SAM3:
         self,
         image: PIL.Image.Image,
         prompt: str,
+        confidence: float = 0.5,
     ) -> Prediction2D:
         img_bytes_io = io.BytesIO()
         image.save(img_bytes_io, format="JPEG")
         img_bytes_io.seek(0)
 
         files = {"image": ("img.jpg", img_bytes_io, "image/jpeg")}
-        params = {"text_prompt": prompt}
+        params = {"text_prompt": prompt, "confidence": confidence}
 
         response = self.client.post(self.inference_url, files=files, params=params)
         response.raise_for_status()
