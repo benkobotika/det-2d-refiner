@@ -10,7 +10,7 @@ from drf.core.adapters.rfdetr import RFDETR
 from drf.core.adapters.sam3 import SAM3
 from drf.core.adapters.real_esrgan import RealESRGAN
 
-from drf.converters.to_coco.a2d2.drf_coco_converter import DRFCOCOConverter
+from drf.converters.to_coco.drf.drf_coco_converter import DRFCOCOConverter
 from drf.core.dtypes.prediction_2d import Prediction2D
 from drf.core.dtypes.image_metadata import ImageMetadata
 from drf.utils.config import Config
