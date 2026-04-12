@@ -16,6 +16,7 @@ class CocoVisualizer:
         self,
         image_dir: str,
         output_dir: str,
+        classes: list[str] | None = None,
         alpha: float = 0.4,
         show_masks: bool = True,
         show_boxes: bool = True,
@@ -23,6 +24,7 @@ class CocoVisualizer:
     ):
         self.image_dir = image_dir
         self.output_dir = output_dir
+        self.classes = classes
         self.alpha = alpha
         self.show_masks = show_masks
         self.show_boxes = show_boxes
@@ -140,6 +142,12 @@ class CocoVisualizer:
             for name, coco in coco_objects.items():
                 ann_ids = coco.getAnnIds(imgIds=img_id)
                 annotations = coco.loadAnns(ann_ids)
+                if self.classes is not None:
+                    annotations = [
+                        ann
+                        for ann in annotations
+                        if coco.cats[ann["category_id"]]["name"] in self.classes
+                    ]
                 panel = self._draw_annotations(original_img, annotations, coco, name)
                 panels.append(panel)
 
@@ -165,12 +173,18 @@ def main():
         action="store_true",
         help="Color masks by instance ID instead of category",
     )
+    parser.add_argument(
+        "--classes",
+        nargs="+",
+        help="Optional list of category names to visualize (if not provided, all categories will be shown)",
+    )
     args = parser.parse_args()
 
     visualizer = CocoVisualizer(
-        args.image_dir,
-        args.output_dir,
-        args.alpha,
+        image_dir=args.image_dir,
+        output_dir=args.output_dir,
+        classes=args.classes,
+        alpha=args.alpha,
         show_masks=not args.no_masks,
         show_boxes=not args.no_boxes,
         instance_mode=args.instance_mode,
