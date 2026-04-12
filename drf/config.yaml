@@ -11,8 +11,14 @@ services:
       port: 8002
     run_kwargs:
       confidence: 0.5
-      prompt: person
+      prompt: car
   real_esrgan:
     adapter_class: RealESRGAN
     init_kwargs:
       port: 8001
+
+detectors: [
+  rfdetr,
+  sam3,
+]
+upscaler: real_esrgan

@@ -21,7 +21,7 @@ class Inference:
     def __init__(self, args: argparse.Namespace):
         # Store arguments and load configuration
         self.args = args
-        self.config = Config(args.config)
+        self.config = Config(Path(__file__).parent / "config.yaml")
         self.logger = Logger()
 
         # Initialize the image service runner
@@ -53,7 +53,7 @@ class Inference:
 
         # 1. Optional Upscaling
         if self.use_upscale and img.size[0] <= 1000 and img.size[1] <= 1000:
-            model_scale, img = self.runner.run("real_esrgan", img)
+            model_scale, img = self.runner.run(self.config.upscaler, img)
         else:
             model_scale = 1.0
 
@@ -63,18 +63,19 @@ class Inference:
 
         # 3. Run inference on all variants
         for current_img, is_flipped, scale in variants:
-            pred = self.runner.run(
-                "sam3",
-                current_img,
-                **self.config.services.sam3.run_kwargs,
-            )
-
-            if is_flipped or scale * model_scale != 1.0:
-                pred = self._normalize_coordinates(
-                    pred, orig_w, orig_h, is_flipped, scale * model_scale
+            for svc_name in self.config.detectors:
+                pred = self.runner.run(
+                    svc_name,
+                    current_img,
+                    **self.config.services[svc_name].run_kwargs,
                 )
 
-            self._append_predictions(final_pred, pred)
+                if is_flipped or scale * model_scale != 1.0:
+                    pred = self._normalize_coordinates(
+                        pred, orig_w, orig_h, is_flipped, scale * model_scale
+                    )
+
+                self._append_predictions(final_pred, pred)
 
         # 4. Apply Mask Fusion
         return self._apply_mask_fusion(final_pred, num_variants)
@@ -307,10 +308,6 @@ def main():
     parser.add_argument(
         "-o", "--output_path", type=str, required=True, help="Output COCO JSON path"
     )
-    parser.add_argument(
-        "-c", "--config", type=str, required=True, help="Path to YAML config"
-    )
-
     parser.add_argument(
         "--iou_threshold",
         type=float,
