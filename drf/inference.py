@@ -19,8 +19,10 @@ from drf.utils.logger import Logger
 
 class Inference:
     def __init__(self, args: argparse.Namespace):
-        # Store arguments and load configuration
+        # Store arguments
         self.args = args
+
+        # Load configuration
         self.config = Config(Path(__file__).parent / "config.yaml")
         self.logger = Logger()
 
@@ -31,7 +33,7 @@ class Inference:
         self.iou_threshold = args.iou_threshold
         self.use_tta = args.tta
         self.use_upscale = args.upscale
-        self.mask_voting_threshold = 0.4
+        self.mask_voting_threshold = args.mask_voting_threshold
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
@@ -51,7 +53,7 @@ class Inference:
             image_metadata=ImageMetadata(width=orig_w, height=orig_h)
         )
 
-        # 1. Optional Upscaling
+        # 1. Optional Upscaling for images smaller than 1000x1000
         if self.use_upscale and img.size[0] <= 1000 and img.size[1] <= 1000:
             model_scale, img = self.runner.run(self.config.upscaler, img)
         else:
@@ -251,8 +253,12 @@ class Inference:
                     1.0, (len(g) / (num_variants * 0.5))
                 )
 
-                if fused_score < self.config.services.sam3.run_kwargs.confidence:
-                    continue
+                for scv_name in self.config.detectors:
+                    if (
+                        fused_score
+                        < self.config.services[scv_name].run_kwargs.confidence
+                    ):
+                        continue
 
                 fused_mask = mask_utils.encode(np.asfortranarray(fused_mask_np))
                 fused_mask["counts"] = fused_mask["counts"].decode("utf-8")
@@ -300,7 +306,7 @@ class Inference:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Inference-time ML-model quality optimization pipeline"
+        description="Inference-time object detection quality optimization pipeline"
     )
     parser.add_argument(
         "-i", "--input_dir", type=str, required=True, help="Input images directory"

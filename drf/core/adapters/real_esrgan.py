@@ -8,7 +8,7 @@ class RealESRGAN:
         if base_url is None:
             base_url = f"http://127.0.0.1:{port}"
 
-        self.enhance_url = f"{base_url.rstrip('/')}/enhance"
+        self.url = f"{base_url.rstrip('/')}/enhance"
         self.client = httpx.Client(timeout=300.0)
 
     def run(self, image: PIL.Image.Image) -> PIL.Image.Image:
@@ -16,9 +16,9 @@ class RealESRGAN:
         image.save(img_bytes_io, format="PNG")
         img_bytes_io.seek(0)
 
-        files = {"image": ("input.png", img_bytes_io, "image/png")}
+        files = {"image": ("img.png", img_bytes_io, "image/png")}
 
-        response = self.client.post(self.enhance_url, files=files)
+        response = self.client.post(self.url, files=files)
         response.raise_for_status()
 
         model_scale = float(response.headers.get("Model-Scale"))

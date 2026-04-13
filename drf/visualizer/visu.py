@@ -158,10 +158,21 @@ class CocoVisualizer:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--coco_files", nargs="+", required=True)
-    parser.add_argument("--image_dir", required=True)
-    parser.add_argument("--output_dir", required=True)
-    parser.add_argument("--alpha", type=float, default=0.4)
+    parser.add_argument(
+        "--coco_files",
+        nargs="+",
+        required=True,
+        help="List of COCO annotation files to visualize",
+    )
+    parser.add_argument(
+        "--image_dir", required=True, help="Directory containing the images"
+    )
+    parser.add_argument(
+        "--output_dir", required=True, help="Directory to save the visualized images"
+    )
+    parser.add_argument(
+        "--alpha", type=float, default=0.4, help="Transparency value for masks"
+    )
     parser.add_argument(
         "--no_masks", action="store_true", help="Disable mask visualization"
     )

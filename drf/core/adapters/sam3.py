@@ -11,8 +11,8 @@ class SAM3:
     def __init__(self, base_url: str = None, port: int = 8002):
         if base_url is None:
             base_url = f"http://127.0.0.1:{port}"
-        self.inference_url = f"{base_url.rstrip('/')}/segment"
-        self.client = httpx.Client(timeout=60.0)
+        self.url = f"{base_url.rstrip('/')}/segment"
+        self.client = httpx.Client(timeout=300.0)
 
     def run(
         self,
@@ -21,13 +21,13 @@ class SAM3:
         confidence: float = 0.5,
     ) -> Prediction2D:
         img_bytes_io = io.BytesIO()
-        image.save(img_bytes_io, format="JPEG")
+        image.save(img_bytes_io, format="PNG")
         img_bytes_io.seek(0)
 
-        files = {"image": ("img.jpg", img_bytes_io, "image/jpeg")}
+        files = {"image": ("img.png", img_bytes_io, "image/png")}
         params = {"text_prompt": prompt, "confidence": confidence}
 
-        response = self.client.post(self.inference_url, files=files, params=params)
+        response = self.client.post(self.url, files=files, params=params)
         response.raise_for_status()
 
         return self._adapt(response.json(), image)

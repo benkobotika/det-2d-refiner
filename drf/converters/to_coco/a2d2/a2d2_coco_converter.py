@@ -12,6 +12,7 @@ from drf.utils.logger import Logger
 class A2D2CocoConverter:
     logger = Logger("A2D2CocoConverter")
 
+    # Mapping of class IDs to category names based on the documentation
     CLASS_IDX_MAP = {
         1: "car",
         2: "pedestrian",
