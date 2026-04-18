@@ -30,10 +30,11 @@ class Inference:
         self.runner = ImgServiceRunner()
 
         # Hyperparameters
-        self.iou_threshold = args.iou_threshold
+        self.box_iou_threshold = args.box_iou_threshold
+        self.mask_iou_threshold = args.mask_iou_threshold
+        self.mask_voting_threshold = args.mask_voting_threshold
         self.use_tta = args.tta
         self.use_upscale = args.upscale
-        self.mask_voting_threshold = args.mask_voting_threshold
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
@@ -186,7 +187,7 @@ class Inference:
         target.bbox_scores.extend(source.bbox_scores)
         target.masks.extend(source.masks)
 
-    def _compute_iou(self, box1, box2):
+    def _compute_box_iou(self, box1: list, box2: list) -> float:
         x1, y1, w1, h1 = box1
         x2, y2, w2, h2 = box2
 
@@ -202,6 +203,13 @@ class Inference:
         union_area = (w1 * h1) + (w2 * h2) - inter_area
         return inter_area / (union_area + 1e-6)
 
+    def _compute_mask_iou(self, mask1: np.ndarray, mask2: np.ndarray) -> float:
+        intersection = np.logical_and(mask1, mask2).sum()
+        union = np.logical_or(mask1, mask2).sum()
+        if union == 0:
+            return 0.0
+        return float(intersection / union)
+
     def _apply_mask_fusion(
         self, predictions: Prediction2D, num_variants: int
     ) -> Prediction2D:
@@ -209,8 +217,9 @@ class Inference:
             return predictions
 
         unique_labels = set(predictions.labels)
-        fused_pred = Prediction2D(image_metadata=predictions.image_metadata)
+        all_decoded_masks = [mask_utils.decode(m) for m in predictions.masks]
 
+        fused_pred = Prediction2D(image_metadata=predictions.image_metadata)
         for label in unique_labels:
             indices = [i for i, l in enumerate(predictions.labels) if l == label]
             if not indices:
@@ -218,30 +227,41 @@ class Inference:
 
             boxes = np.array([predictions.bboxes[i] for i in indices])
             scores = np.array([predictions.bbox_scores[i] for i in indices])
-            masks = [predictions.masks[i] for i in indices]
+            decoded_masks = [all_decoded_masks[i] for i in indices]
 
             sort_idx = np.argsort(scores)[::-1]
             boxes = boxes[sort_idx]
             scores = scores[sort_idx]
-            masks = [masks[i] for i in sort_idx]
+            decoded_masks = [decoded_masks[i] for i in sort_idx]
 
             groups = []
             for i in range(len(boxes)):
                 matched = False
                 for g in groups:
-                    if self._compute_iou(boxes[i], boxes[g[0]]) > self.iou_threshold:
-                        g.append(i)
-                        matched = True
-                        break
+                    if (
+                        self._compute_box_iou(boxes[i], boxes[g[0]])
+                        > self.box_iou_threshold
+                    ):
+                        if (
+                            self._compute_mask_iou(
+                                decoded_masks[i], decoded_masks[g[0]]
+                            )
+                            > self.mask_iou_threshold
+                        ):
+                            g.append(i)
+                            matched = True
+                            break
                 if not matched:
                     groups.append([i])
 
             for g in groups:
                 g_scores = scores[g]
-                g_masks = [masks[i] for i in g]
+                g_masks_decoded = np.array([decoded_masks[i] for i in g])
+                weights = g_scores.reshape(-1, 1, 1)
+                sum_weights = np.sum(weights)
+                weighted_sum_mask = np.sum(g_masks_decoded * weights, axis=0)
+                avg_mask = weighted_sum_mask / sum_weights
 
-                decoded_masks = np.array([mask_utils.decode(m) for m in g_masks])
-                avg_mask = np.mean(decoded_masks, axis=0)
                 fused_mask_np = (avg_mask >= self.mask_voting_threshold).astype(
                     np.uint8
                 )
@@ -249,16 +269,7 @@ class Inference:
                 if not np.any(fused_mask_np):
                     continue
 
-                fused_score = np.mean(g_scores) * min(
-                    1.0, (len(g) / (num_variants * 0.5))
-                )
-
-                for scv_name in self.config.detectors:
-                    if (
-                        fused_score
-                        < self.config.services[scv_name].run_kwargs.confidence
-                    ):
-                        continue
+                fused_score = np.mean(g_scores)
 
                 fused_mask = mask_utils.encode(np.asfortranarray(fused_mask_np))
                 fused_mask["counts"] = fused_mask["counts"].decode("utf-8")
@@ -315,10 +326,16 @@ def main():
         "-o", "--output_path", type=str, required=True, help="Output COCO JSON path"
     )
     parser.add_argument(
-        "--iou_threshold",
+        "--box_iou_threshold",
+        type=float,
+        default=0.50,
+        help="Box IoU threshold for preliminary grouping",
+    )
+    parser.add_argument(
+        "--mask_iou_threshold",
         type=float,
         default=0.75,
-        help="IoU threshold for Box Grouping",
+        help="Mask IoU threshold for precise pixel grouping",
     )
     parser.add_argument(
         "--mask_voting_threshold",
