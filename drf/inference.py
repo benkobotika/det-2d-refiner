@@ -35,6 +35,9 @@ class Inference:
         self.mask_voting_threshold = args.mask_voting_threshold
         self.use_tta = args.tta
         self.use_upscale = args.upscale
+        self.use_sahi = args.sahi
+        self.sahi_slice_size = args.sahi_slice_size
+        self.sahi_overlap_ratio = args.sahi_overlap_ratio
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
@@ -80,8 +83,63 @@ class Inference:
 
                 self._append_predictions(final_pred, pred)
 
-        # 4. Apply Mask Fusion
+        # 4. SAHI (Slicing Aided Hyper Inference)
+        if self.use_sahi:
+            sahi_pred = self._run_sahi(img)
+            self._append_predictions(final_pred, sahi_pred)
+
+        # 5. Apply Mask Fusion
         return self._apply_mask_fusion(final_pred, num_variants)
+
+    def _get_slices(
+        self, img_w: int, img_h: int
+    ) -> list:
+        stride = max(1, int(self.sahi_slice_size * (1 - self.sahi_overlap_ratio)))
+        slices = []
+        y = 0
+        while True:
+            x = 0
+            y1 = min(y + self.sahi_slice_size, img_h)
+            while True:
+                x1 = min(x + self.sahi_slice_size, img_w)
+                slices.append((x, y, x1, y1))
+                if x1 == img_w:
+                    break
+                x += stride
+            if y1 == img_h:
+                break
+            y += stride
+        return slices
+
+    def _run_sahi(self, img: Image.Image) -> Prediction2D:
+        orig_w, orig_h = img.size
+        merged = Prediction2D(image_metadata=ImageMetadata(width=orig_w, height=orig_h))
+
+        for x0, y0, x1, y1 in self._get_slices(orig_w, orig_h):
+            patch = img.crop((x0, y0, x1, y1))
+            for svc_name in self.config.detectors:
+                pred = self.runner.run(
+                    svc_name, patch, **self.config.services[svc_name].run_kwargs
+                )
+
+                pred.bboxes = [
+                    [bx + x0, by + y0, bw, bh] for bx, by, bw, bh in pred.bboxes
+                ]
+
+                remapped_masks = []
+                for mask in pred.masks:
+                    m = mask_utils.decode(mask)
+                    full_m = np.zeros((orig_h, orig_w), dtype=np.uint8)
+                    ph, pw = m.shape
+                    full_m[y0 : y0 + ph, x0 : x0 + pw] = m
+                    encoded = mask_utils.encode(np.asfortranarray(full_m))
+                    encoded["counts"] = encoded["counts"].decode("utf-8")
+                    remapped_masks.append(encoded)
+                pred.masks = remapped_masks
+
+                self._append_predictions(merged, pred)
+
+        return merged
 
     def _get_image_variants(self, img):
         variants = [(img, False, 1.0)]
@@ -329,19 +387,19 @@ def main():
         "--box_iou_threshold",
         type=float,
         default=0.50,
-        help="Box IoU threshold for preliminary grouping",
+        help="Box IoU threshold for preliminary grouping, 0-1 (default: 0.50)",
     )
     parser.add_argument(
         "--mask_iou_threshold",
         type=float,
         default=0.75,
-        help="Mask IoU threshold for precise pixel grouping",
+        help="Mask IoU threshold for precise pixel grouping, 0-1 (default: 0.75)",
     )
     parser.add_argument(
         "--mask_voting_threshold",
         type=float,
         default=0.4,
-        help="Pixel voting threshold for mask fusion",
+        help="Pixel voting threshold for mask fusion, 0-1 (default: 0.4)",
     )
     parser.add_argument(
         "--tta",
@@ -352,6 +410,23 @@ def main():
         "--upscale",
         action="store_true",
         help="Enable upscaling for images smaller than 1000x1000 (both dimensions)",
+    )
+    parser.add_argument(
+        "--sahi",
+        action="store_true",
+        help="Enable SAHI (Slicing Aided Hyper Inference)",
+    )
+    parser.add_argument(
+        "--sahi_slice_size",
+        type=int,
+        default=640,
+        help="Slice size (pixels) for SAHI patches (default: 640)",
+    )
+    parser.add_argument(
+        "--sahi_overlap_ratio",
+        type=float,
+        default=0.2,
+        help="Overlap ratio between adjacent SAHI slices, 0-1 (default: 0.2)",
     )
     args = parser.parse_args()
     Inference(args).run()

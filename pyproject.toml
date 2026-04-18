@@ -19,6 +19,7 @@ dependencies = [
   "addict>=2.4.0,<3",
   "httpx~=0.28.1",
   "pandas>=3.0.2,<4",
+  "pylint>=4.0.5,<5",
 ]
 
 [tool.setuptools.packages.find]
