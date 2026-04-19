@@ -9,6 +9,13 @@ from pycocotools.cocoeval import COCOeval
 
 
 class COCOEvaluator:
+    """
+    Evaluate COCO-style detection/segmentation predictions globally, per class, and per image.
+    This evaluator wraps pycocotools.COCOeval and augments standard COCO summary
+    statistics with additional count-based metrics computed at a configurable IoU threshold
+    (default: 0.75), including TP/FP/FN, precision, and recall.
+    """
+
     COCO_METRIC_NAMES = [
         "AP_50_95",
         "AP_50",

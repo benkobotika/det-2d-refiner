@@ -10,6 +10,14 @@ from drf.utils.logger import Logger
 
 
 class CocoVisualizer:
+    """
+    Visualize and compare COCO-format annotations across one or more annotation files.
+    This visualizer loads images from image_dir, renders segmentation masks and/or
+    bounding boxes with category labels, and writes stacked comparison panels to
+    output_dir. Each output image contains one panel per COCO file, with a header
+    showing the source annotation file name.
+    """
+
     logger = Logger("CocoVisualizer")
 
     def __init__(

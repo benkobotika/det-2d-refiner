@@ -8,6 +8,10 @@ from drf.core.dtypes.image_metadata import ImageMetadata
 
 
 class RFDETR:
+    """
+    Client for RFDETR 2D detection and segmentation service.
+    """
+
     def __init__(self, base_url: str = None, port: int = 8000):
         if base_url is None:
             base_url = f"http://127.0.0.1:{port}"

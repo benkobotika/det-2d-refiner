@@ -18,6 +18,10 @@ from drf.utils.logger import Logger
 
 
 class Inference:
+    """
+    Inference class for running image processing services on input images.
+    """
+
     def __init__(self, args: argparse.Namespace):
         # Store arguments
         self.args = args
@@ -91,9 +95,7 @@ class Inference:
         # 5. Apply Mask Fusion
         return self._apply_mask_fusion(final_pred, num_variants)
 
-    def _get_slices(
-        self, img_w: int, img_h: int
-    ) -> list:
+    def _get_slices(self, img_w: int, img_h: int) -> list:
         stride = max(1, int(self.sahi_slice_size * (1 - self.sahi_overlap_ratio)))
         slices = []
         y = 0

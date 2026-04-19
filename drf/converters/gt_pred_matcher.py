@@ -4,6 +4,10 @@ from pathlib import Path
 
 
 class CocoGtPredMatcher:
+    """
+    Align COCO prediction IDs and categories to a Ground Truth file.
+    """
+
     def __init__(self, gt_path: str, pred_path: str):
         self.gt_data = self._load_json(gt_path)
         self.pred_data = self._load_json(pred_path)

@@ -6,6 +6,10 @@ from drf.core.dtypes.prediction_2d import Prediction2D
 
 
 class DRFCOCOConverter:
+    """
+    Convert DRF 2D prediction objects into a COCO-style JSON file.
+    """
+
     def __init__(self):
         self.categories = {}
         self.category_list = []

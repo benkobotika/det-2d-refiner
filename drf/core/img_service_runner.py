@@ -3,6 +3,12 @@ from PIL import Image
 
 
 class ImgServiceRunner:
+    """
+    A manager for running multiple image processing services (adapters) in a context-aware manner.
+    It allows dynamic addition and removal of services, and ensures proper resource management through context management protocols.
+    Services can be run on images with specified parameters, and the runner handles the lifecycle of each service instance.
+    """
+
     def __init__(self):
         self._active_services: Dict[str, Any] = {}
         self._service_configs: Dict[str, Dict[str, Any]] = {}

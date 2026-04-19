@@ -2,6 +2,10 @@ import logging
 
 
 class Logger:
+    """
+    Simple wrapper around Python's built-in logging module to provide consistent formatting and easy instantiation.
+    """
+
     def __init__(self, logger_name: str = __name__, level: int = logging.INFO):
         self._log = logging.getLogger(logger_name)
         self._log.setLevel(level)

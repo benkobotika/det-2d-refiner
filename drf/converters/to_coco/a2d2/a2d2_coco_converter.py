@@ -10,6 +10,10 @@ from drf.utils.logger import Logger
 
 
 class A2D2CocoConverter:
+    """
+    Convert A2D2 instance-label PNG masks into COCO-style instance segmentation annotations.
+    """
+
     logger = Logger("A2D2CocoConverter")
 
     # Mapping of class IDs to category names based on the documentation
