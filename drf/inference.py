@@ -66,6 +66,7 @@ class Inference:
         # 1. Optional Upscaling for small images
         if (
             self.use_upscale
+            and not self.use_sahi
             and img.size[0] <= MAX_UPSCALE_DIM
             and img.size[1] <= MAX_UPSCALE_DIM
         ):
