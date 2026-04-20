@@ -16,6 +16,8 @@ from drf.core.dtypes.image_metadata import ImageMetadata
 from drf.utils.config import Config
 from drf.utils.logger import Logger
 
+MAX_UPSCALE_DIM = 1000  # Max dimension for upscaling
+
 
 class Inference:
     """
@@ -61,8 +63,12 @@ class Inference:
             image_metadata=ImageMetadata(width=orig_w, height=orig_h)
         )
 
-        # 1. Optional Upscaling for images smaller than 1000x1000
-        if self.use_upscale and img.size[0] <= 1000 and img.size[1] <= 1000:
+        # 1. Optional Upscaling for small images
+        if (
+            self.use_upscale
+            and img.size[0] <= MAX_UPSCALE_DIM
+            and img.size[1] <= MAX_UPSCALE_DIM
+        ):
             model_scale, img = self.runner.run(self.config.upscaler, img)
         else:
             model_scale = 1.0
@@ -120,17 +126,37 @@ class Inference:
         for x0, y0, x1, y1 in self._get_slices(orig_w, orig_h):
             patch = img.crop((x0, y0, x1, y1))
             for svc_name in self.config.detectors:
+                if (
+                    self.use_upscale
+                    and patch.size[0] <= MAX_UPSCALE_DIM
+                    and patch.size[1] <= MAX_UPSCALE_DIM
+                ):
+                    model_scale, patch = self.runner.run(self.config.upscaler, patch)
+                else:
+                    model_scale = 1.0
                 pred = self.runner.run(
                     svc_name, patch, **self.config.services[svc_name].run_kwargs
                 )
 
                 pred.bboxes = [
-                    [bx + x0, by + y0, bw, bh] for bx, by, bw, bh in pred.bboxes
+                    [
+                        bx / model_scale + x0,
+                        by / model_scale + y0,
+                        bw / model_scale,
+                        bh / model_scale,
+                    ]
+                    for bx, by, bw, bh in pred.bboxes
                 ]
 
                 remapped_masks = []
                 for mask in pred.masks:
                     m = mask_utils.decode(mask)
+                    if model_scale != 1.0:
+                        m = Image.fromarray(m).resize(
+                            (x1 - x0, y1 - y0),
+                            Image.Resampling.BILINEAR,
+                        )
+                        m = (np.array(m) > 0.5).astype(np.uint8)
                     full_m = np.zeros((orig_h, orig_w), dtype=np.uint8)
                     ph, pw = m.shape
                     full_m[y0 : y0 + ph, x0 : x0 + pw] = m
@@ -388,20 +414,20 @@ def main():
     parser.add_argument(
         "--box_iou_threshold",
         type=float,
-        default=0.50,
-        help="Box IoU threshold for preliminary grouping, 0-1 (default: 0.50)",
+        default=0.30,
+        help="Box IoU threshold for preliminary grouping, 0-1 (default: 0.30)",
     )
     parser.add_argument(
         "--mask_iou_threshold",
         type=float,
-        default=0.75,
-        help="Mask IoU threshold for precise pixel grouping, 0-1 (default: 0.75)",
+        default=0.30,
+        help="Mask IoU threshold for precise pixel grouping, 0-1 (default: 0.30)",
     )
     parser.add_argument(
         "--mask_voting_threshold",
         type=float,
-        default=0.4,
-        help="Pixel voting threshold for mask fusion, 0-1 (default: 0.4)",
+        default=0.20,
+        help="Pixel voting threshold for mask fusion, 0-1 (default: 0.20)",
     )
     parser.add_argument(
         "--tta",
@@ -411,7 +437,7 @@ def main():
     parser.add_argument(
         "--upscale",
         action="store_true",
-        help="Enable upscaling for images smaller than 1000x1000 (both dimensions)",
+        help=f"Enable upscaling for images smaller than {MAX_UPSCALE_DIM}x{MAX_UPSCALE_DIM} (both dimensions)",
     )
     parser.add_argument(
         "--sahi",
