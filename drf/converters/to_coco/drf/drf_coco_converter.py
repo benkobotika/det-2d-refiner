@@ -1,5 +1,5 @@
 import json
-from typing import List, Dict, Any
+from typing import List
 from pycocotools import mask as mask_utils
 
 from drf.core.dtypes.prediction_2d import Prediction2D

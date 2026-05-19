@@ -126,11 +126,14 @@ def main():
     parser = argparse.ArgumentParser(
         description="A2D2 16-bit Instance to COCO Converter"
     )
-    parser.add_argument("--root_dir", type=str, required=True)
+    parser.add_argument(
+        "--root_dir", type=str, required=True, help="Root directory of the A2D2 dataset"
+    )
     parser.add_argument(
         "--target_segment",
         type=str,
         default=os.path.join("instance", "cam_front_center"),
+        help="Target folder segment to process within the A2D2 dataset",
     )
     args = parser.parse_args()
 

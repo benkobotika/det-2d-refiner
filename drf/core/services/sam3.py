@@ -1,27 +1,27 @@
 import httpx
 import io
 import PIL.Image
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 from drf.core.dtypes.prediction_2d import Prediction2D
 from drf.core.dtypes.image_metadata import ImageMetadata
 
 
-class RFDETR:
+class SAM3:
     """
-    Client for RFDETR 2D detection and segmentation service.
+    Client for SAM3 2D detection and segmentation service.
     """
 
-    def __init__(self, base_url: str = None, port: int = 8000):
+    def __init__(self, base_url: Optional[str] = None, port: int = 8002):
         if base_url is None:
             base_url = f"http://127.0.0.1:{port}"
-
         self.url = f"{base_url.rstrip('/')}/segment"
         self.client = httpx.Client(timeout=300.0)
 
     def run(
         self,
         image: PIL.Image.Image,
+        prompt: str,
         confidence: float = 0.5,
     ) -> Prediction2D:
         img_bytes_io = io.BytesIO()
@@ -29,7 +29,7 @@ class RFDETR:
         img_bytes_io.seek(0)
 
         files = {"image": ("img.png", img_bytes_io, "image/png")}
-        params = {"confidence": confidence}
+        params = {"text_prompt": prompt, "confidence": confidence}
 
         response = self.client.post(self.url, files=files, params=params)
         response.raise_for_status()

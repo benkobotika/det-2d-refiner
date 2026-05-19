@@ -6,9 +6,9 @@ from tqdm import tqdm
 from pycocotools import mask as mask_utils
 
 from drf.core.img_service_runner import ImgServiceRunner
-from drf.core.adapters.rfdetr import RFDETR
-from drf.core.adapters.sam3 import SAM3
-from drf.core.adapters.real_esrgan import RealESRGAN
+from drf.core.services.rfdetr import RFDETR
+from drf.core.services.sam3 import SAM3
+from drf.core.services.real_esrgan import RealESRGAN
 
 from drf.converters.to_coco.drf.drf_coco_converter import DRFCOCOConverter
 from drf.core.dtypes.prediction_2d import Prediction2D
@@ -47,14 +47,14 @@ class Inference:
 
     def _setup_services(self):
         for svc_name, svc_data in self.config.services.items():
-            adapter_class = globals().get(svc_data.adapter_class)
-            if not adapter_class:
+            service_class = globals().get(svc_data.service_class)
+            if not service_class:
                 self.logger.error(
-                    f"Adapter class {svc_data.adapter_class} not found in globals."
+                    f"Service class {svc_data.service_class} not found in globals."
                 )
                 continue
 
-            self.runner.add_service(svc_name, adapter_class, **svc_data.init_kwargs)
+            self.runner.add_service(svc_name, service_class, **svc_data.init_kwargs)
             self.logger.info(f"Registered service: {svc_name}")
 
     def process_image(self, img: Image.Image) -> Prediction2D:
@@ -100,7 +100,7 @@ class Inference:
             self._append_predictions(final_pred, sahi_pred)
 
         # 5. Apply Mask Fusion
-        return self._apply_mask_fusion(final_pred, num_variants)
+        return self._apply_mask_fusion(final_pred)
 
     def _get_slices(self, img_w: int, img_h: int) -> list:
         stride = max(1, int(self.sahi_slice_size * (1 - self.sahi_overlap_ratio)))
@@ -297,9 +297,7 @@ class Inference:
             return 0.0
         return float(intersection / union)
 
-    def _apply_mask_fusion(
-        self, predictions: Prediction2D, num_variants: int
-    ) -> Prediction2D:
+    def _apply_mask_fusion(self, predictions: Prediction2D) -> Prediction2D:
         if not predictions.bboxes:
             return predictions
 
@@ -404,7 +402,7 @@ class Inference:
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Inference-time object detection quality optimization pipeline"
+        description="Inference-time instance segmentation quality optimization pipeline"
     )
     parser.add_argument(
         "-i", "--input_dir", type=str, required=True, help="Input images directory"

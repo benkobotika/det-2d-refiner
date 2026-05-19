@@ -4,7 +4,7 @@ from PIL import Image
 
 class ImgServiceRunner:
     """
-    A manager for running multiple image processing services (adapters) in a context-aware manner.
+    A manager for running multiple image processing services in a context-aware manner.
     It allows dynamic addition and removal of services, and ensures proper resource management through context management protocols.
     Services can be run on images with specified parameters, and the runner handles the lifecycle of each service instance.
     """
@@ -14,16 +14,16 @@ class ImgServiceRunner:
         self._service_configs: Dict[str, Dict[str, Any]] = {}
         self._is_active: bool = False
 
-    def add_service(self, service_name: str, adapter_class: Type, **kwargs):
+    def add_service(self, service_name: str, service_class: Type, **kwargs):
         if service_name in self._active_services:
             old_instance = self._active_services[service_name]
             if hasattr(old_instance, "__exit__"):
                 old_instance.__exit__(None, None, None)
 
-        self._service_configs[service_name] = {"class": adapter_class, "kwargs": kwargs}
+        self._service_configs[service_name] = {"class": service_class, "kwargs": kwargs}
 
         if self._is_active:
-            instance = adapter_class(**kwargs)
+            instance = service_class(**kwargs)
             if hasattr(instance, "__enter__"):
                 instance.__enter__()
             self._active_services[service_name] = instance

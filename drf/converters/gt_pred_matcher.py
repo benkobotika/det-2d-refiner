@@ -21,8 +21,7 @@ class CocoGtPredMatcher:
         self.gt_category_names = set(self.cat_name_to_gt_cat_id.keys())
 
     def _load_json(self, path: str) -> dict:
-        p = Path(path)
-        with open(p, "r") as f:
+        with open(path, "r") as f:
             return json.load(f)
 
     def map_predictions(self) -> dict:
@@ -56,9 +55,9 @@ class CocoGtPredMatcher:
         }
 
     def save(self, output_path: str, data: dict):
-        out_p = Path(output_path)
-        out_p.parent.mkdir(parents=True, exist_ok=True)
-        with open(out_p, "w") as f:
+        out_path = Path(output_path)
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(out_path, "w") as f:
             json.dump(data, f, indent=4)
 
 

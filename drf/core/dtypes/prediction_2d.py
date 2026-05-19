@@ -14,9 +14,11 @@ class Prediction2D:
     )  # List of class labels corresponding to each bounding box
     bbox_scores: List[float] = field(
         default_factory=list
-    )  # Optional list of confidence scores for each bounding box
+    )  # List of confidence scores for each bounding box
     masks: List[Dict[str, Any]] = field(
         default_factory=list
-    )  # Optional list of masks in RLE format
+    )  # List of masks in RLE format
 
-    image_metadata: ImageMetadata = field(default_factory=ImageMetadata)
+    image_metadata: ImageMetadata = field(
+        default_factory=ImageMetadata
+    )  # Metadata about the image

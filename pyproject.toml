@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "drf"
-version = "0.1.0"
-description = "Inference-Time Optimization for Object Detection"
+version = "1.0.0"
+description = "Inference-Time Quality Optimization in Instance Segmentation"
 authors = [{ name = "Botond Benkő", email = "benkobotika@yahoo.com" }]
 readme = "README.md"
 requires-python = ">=3.12"

@@ -1,6 +1,7 @@
 import httpx
 import io
 import PIL.Image
+from typing import Optional
 
 
 class RealESRGAN:
@@ -8,7 +9,7 @@ class RealESRGAN:
     Client for Real-ESRGAN image super-resolution service.
     """
 
-    def __init__(self, base_url: str = None, port: int = 8001):
+    def __init__(self, base_url: Optional[str] = None, port: int = 8001):
         if base_url is None:
             base_url = f"http://127.0.0.1:{port}"
 
