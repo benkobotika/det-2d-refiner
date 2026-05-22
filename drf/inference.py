@@ -6,9 +6,9 @@ from tqdm import tqdm
 from pycocotools import mask as mask_utils
 
 from drf.core.img_service_runner import ImgServiceRunner
-from drf.core.services.rfdetr import RFDETR
-from drf.core.services.sam3 import SAM3
-from drf.core.services.real_esrgan import RealESRGAN
+from drf.core.clients.rfdetr import RFDETR
+from drf.core.clients.sam3 import SAM3
+from drf.core.clients.real_esrgan import RealESRGAN
 
 from drf.converters.to_coco.drf.drf_coco_converter import DRFCOCOConverter
 from drf.core.dtypes.prediction_2d import Prediction2D
