@@ -186,7 +186,7 @@ RealESRGAN -[#1B9E72]-> ESRGANService
 
 legend bottom
   | <b>Legend</b>     | |
-  | <color:#000000>────></color> | Association relationship |
+  | <color:#000000>─────></color> | Association relationship |
   | <color:#000000>─────◆</color> | Composition relationship |
   | <color:#6B5CE7>─────></color> | Management / control flow |
   | <color:#1B9E72>─────></color> | External service communication |
