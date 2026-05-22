@@ -158,8 +158,9 @@ package "Docker Services" <<services>> {
 }
 
 ' Layout
-Logger -[hidden]right- Config
 CocoVisualizer -[hidden]up- COCOEvaluator
+Inference -[hidden]down- core
+COCOEvaluator -[hidden]right- DRFCocoConverter
 to_coco -[hidden]up- CocoGtPredMatcher
 
 ' Relationships

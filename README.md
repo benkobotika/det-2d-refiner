@@ -18,5 +18,5 @@ git submodule update --init --recursive
 - Create Docker containers for each module based on the `README.md` file found in each module’s `docker/` folder.
 - Based on which module is used by the framework, the relevant container for that module should be started at inference time, as it will function as an ML service.
 
-## System Architecture
-![System Architecture](docs/architecture.png)
+## Framework Architecture
+![Framework Architecture](docs/architecture.png)
