@@ -10,7 +10,7 @@ from drf.core.clients.rfdetr import RFDETR
 from drf.core.clients.sam3 import SAM3
 from drf.core.clients.real_esrgan import RealESRGAN
 
-from drf.converters.to_coco.drf.drf_coco_converter import DRFCOCOConverter
+from drf.converters.to_coco.drf_coco_converter import DRFCocoConverter
 from drf.core.dtypes.prediction_2d import Prediction2D
 from drf.core.dtypes.image_metadata import ImageMetadata
 from drf.utils.config import Config
@@ -397,7 +397,7 @@ class Inference:
         # Save results in COCO format
         output_file = Path(self.args.output_path)
         output_file.parent.mkdir(parents=True, exist_ok=True)
-        DRFCOCOConverter().convert(predictions, str(output_file))
+        DRFCocoConverter().convert(predictions, str(output_file))
 
 
 def main():

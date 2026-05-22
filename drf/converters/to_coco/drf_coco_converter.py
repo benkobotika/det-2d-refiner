@@ -5,7 +5,7 @@ from pycocotools import mask as mask_utils
 from drf.core.dtypes.prediction_2d import Prediction2D
 
 
-class DRFCOCOConverter:
+class DRFCocoConverter:
     """
     Convert DRF 2D prediction objects into a COCO-style JSON file.
     """

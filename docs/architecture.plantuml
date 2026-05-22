@@ -1,0 +1,194 @@
+@startuml drf_architecture
+hide stereotype
+
+skinparam defaultFontSize 12
+skinparam ArrowThickness 1.5
+
+skinparam package {
+  BackgroundColor transparent
+  BorderThickness 1.5
+  FontStyle bold
+  FontSize 12
+}
+skinparam rectangle {
+  RoundCorner 12
+  BorderThickness 1.5
+  FontStyle bold
+  FontSize 13
+}
+
+' Package colors
+skinparam package<<drf>> {
+  BackgroundColor #F5F3FF
+  BorderColor #5A4FCF
+  FontColor #2D1F7A
+}
+skinparam package<<converters>> {
+  BackgroundColor #FFF8E6
+  BorderColor #D4950A
+  FontColor #5A3800
+}
+skinparam package<<core>> {
+  BackgroundColor #F0EEFF
+  BorderColor #7A6FE8
+  FontColor #2D1F7A
+}
+skinparam package<<dtypes>> {
+  BackgroundColor #FFF1EB
+  BorderColor #E06030
+  FontColor #5C2010
+}
+skinparam package<<clients>> {
+  BackgroundColor #EAFBF5
+  BorderColor #1B9E72
+  FontColor #0A3D2B
+}
+skinparam package<<evaluator>> {
+  BackgroundColor #EEF6FF
+  BorderColor #2E86DE
+  FontColor #0C3B6E
+}
+skinparam package<<visualizer>> {
+  BackgroundColor #ECFEFF
+  BorderColor #06B6D4
+  FontColor #083344
+}
+skinparam package<<utils>> {
+  BackgroundColor #F6F6F6
+  BorderColor #777777
+  FontColor #333333
+}
+skinparam package<<services>> {
+  BackgroundColor #F3FAEA
+  BorderColor #4A8C18
+  FontColor #1E4A00
+}
+
+' Component colors
+skinparam rectangle<<drf>> {
+  BackgroundColor #DDD8FF
+  BorderColor #4B42B8
+  FontColor #1E145E
+}
+skinparam rectangle<<converters>> {
+  BackgroundColor #FFE7B8
+  BorderColor #B87400
+  FontColor #4A2C00
+}
+skinparam rectangle<<core>> {
+  BackgroundColor #D8D3FF
+  BorderColor #5B4DE0
+  FontColor #1F1A66
+}
+skinparam rectangle<<dtypes>> {
+  BackgroundColor #FFD6C8
+  BorderColor #C84A1C
+  FontColor #4A1A0C
+}
+skinparam rectangle<<clients>> {
+  BackgroundColor #BFEFE0
+  BorderColor #0F7F5A
+  FontColor #063326
+}
+skinparam rectangle<<evaluator>> {
+  BackgroundColor #CFE6FF
+  BorderColor #1F6FD1
+  FontColor #0A2F5A
+}
+skinparam rectangle<<visualizer>> {
+  BackgroundColor #A5F3FC
+  BorderColor #0891B2
+  FontColor #052F2E
+}
+skinparam rectangle<<utils>> {
+  BackgroundColor #E2E2E2
+  BorderColor #666666
+  FontColor #222222
+}
+skinparam rectangle<<services>> {
+  BackgroundColor #D6F0B8
+  BorderColor #3F7A12
+  FontColor #173800
+}
+
+' Packages and components
+package "drf" <<drf>> {
+  rectangle "Inference" <<drf>> as Inference
+
+  package "converters" <<converters>> {
+    package "to_coco" <<converters>> {
+      rectangle "A2D2CocoConverter" <<converters>> as A2D2CocoConverter
+      rectangle "DRFCocoConverter" <<converters>> as DRFCocoConverter
+    }
+    rectangle "CocoGtPredMatcher" <<converters>> as CocoGtPredMatcher
+  }
+
+  package "core" <<core>> {
+    rectangle "ImgServiceRunner" <<core>> as ImgServiceRunner
+    package "clients" <<clients>> {
+      rectangle "RFDETR" <<clients>> as RFDETR
+      rectangle "SAM3" <<clients>> as SAM3
+      rectangle "RealESRGAN" <<clients>> as RealESRGAN
+    }
+    package "dtypes" <<dtypes>> {
+      rectangle "Prediction2D" <<dtypes>> as Prediction2D
+      rectangle "ImageMetadata" <<dtypes>> as ImageMetadata
+    }
+  }
+
+  package "evaluator" <<evaluator>> {
+    rectangle "COCOEvaluator" <<evaluator>> as COCOEvaluator
+  }
+
+  package "visualizer" <<visualizer>> {
+    rectangle "CocoVisualizer" <<visualizer>> as CocoVisualizer
+  }
+
+  package "utils" <<utils>> {
+    rectangle "Logger" <<utils>> as Logger
+    rectangle "Config" <<utils>> as Config
+  }
+}
+
+' Docker services
+package "Docker Services" <<services>> {
+  rectangle "RFDETR Service\n<size:10>Object Detection</size>" <<services>> as RFDETRService
+  rectangle "SAM3 Service\n<size:10>Instance Segmentation</size>" <<services>> as SAM3Service
+  rectangle "RealESRGAN Service\n<size:10>Image Restoration</size>" <<services>> as ESRGANService
+}
+
+' Layout
+Logger -[hidden]right- Config
+CocoVisualizer -[hidden]up- COCOEvaluator
+to_coco -[hidden]up- CocoGtPredMatcher
+
+' Relationships
+' Composition
+Logger --* Inference
+Logger --* A2D2CocoConverter
+Logger --* CocoVisualizer
+Config --* Inference
+ImgServiceRunner --* Inference
+
+' Association
+Prediction2D --> ImageMetadata
+
+' Management / control flow
+ImgServiceRunner -[#6B5CE7]-> RFDETR
+ImgServiceRunner -[#6B5CE7]-> SAM3
+ImgServiceRunner -[#6B5CE7]-> RealESRGAN
+
+' External service communication
+RFDETR -[#1B9E72]-> RFDETRService
+SAM3 -[#1B9E72]-> SAM3Service
+RealESRGAN -[#1B9E72]-> ESRGANService
+
+legend bottom
+  | <b>Legend</b>     | |
+  | <color:#000000>────></color> | Association relationship |
+  | <color:#000000>─────◆</color> | Composition relationship |
+  | <color:#6B5CE7>─────></color> | Management / control flow |
+  | <color:#1B9E72>─────></color> | External service communication |
+endlegend
+
+@enduml
