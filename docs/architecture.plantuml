@@ -152,7 +152,7 @@ package "drf" <<drf>> {
 
 ' Docker services
 package "Docker Services" <<services>> {
-  rectangle "RFDETR Service\n<size:10>Object Detection</size>" <<services>> as RFDETRService
+  rectangle "RFDETR Service\n<size:10>Instance Segmentation</size>" <<services>> as RFDETRService
   rectangle "SAM3 Service\n<size:10>Instance Segmentation</size>" <<services>> as SAM3Service
   rectangle "RealESRGAN Service\n<size:10>Image Restoration</size>" <<services>> as ESRGANService
 }
