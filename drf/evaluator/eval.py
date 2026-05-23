@@ -8,7 +8,7 @@ from pycocotools.coco import COCO
 from pycocotools.cocoeval import COCOeval
 
 
-class COCOEvaluator:
+class CocoEvaluator:
     """
     Evaluate COCO-style detection/segmentation predictions globally, per class, and per image.
     This evaluator wraps pycocotools.COCOeval and augments standard COCO summary

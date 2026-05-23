@@ -137,7 +137,7 @@ package "drf" <<drf>> {
   }
 
   package "evaluator" <<evaluator>> {
-    rectangle "COCOEvaluator" <<evaluator>> as COCOEvaluator
+    rectangle "CocoEvaluator" <<evaluator>> as CocoEvaluator
   }
 
   package "visualizer" <<visualizer>> {
@@ -158,9 +158,9 @@ package "Docker Services" <<services>> {
 }
 
 ' Layout
-CocoVisualizer -[hidden]up- COCOEvaluator
+CocoVisualizer -[hidden]up- CocoEvaluator
 Inference -[hidden]down- core
-COCOEvaluator -[hidden]right- DRFCocoConverter
+CocoEvaluator -[hidden]right- DRFCocoConverter
 to_coco -[hidden]up- CocoGtPredMatcher
 
 ' Relationships
