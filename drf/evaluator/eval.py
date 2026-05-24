@@ -263,7 +263,7 @@ def main():
 
     args = parser.parse_args()
 
-    evaluator = COCOEvaluator(args.gt, args.pred, size_thresholds=args.size_thresholds)
+    evaluator = CocoEvaluator(args.gt, args.pred, size_thresholds=args.size_thresholds)
     evaluator.run()
     evaluator.save_results(args.out)
 
