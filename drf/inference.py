@@ -179,7 +179,7 @@ class Inference:
         variants.append((ImageOps.mirror(img), True, 1.0))
 
         # Multi-Scale
-        for scale in [0.75, 1.0, 1.25, 1.5]:
+        for scale in [0.75, 1.25, 1.5]:
             new_size = (int(img.width * scale), int(img.height * scale))
             variants.append(
                 (
