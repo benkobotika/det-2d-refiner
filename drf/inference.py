@@ -155,9 +155,9 @@ class Inference:
                     if model_scale != 1.0:
                         m = Image.fromarray(m).resize(
                             (x1 - x0, y1 - y0),
-                            Image.Resampling.BILINEAR,
+                            Image.Resampling.NEAREST,
                         )
-                        m = (np.array(m) > 0.5).astype(np.uint8)
+                        m = np.array(m, dtype=np.uint8)
                     full_m = np.zeros((orig_h, orig_w), dtype=np.uint8)
                     ph, pw = m.shape
                     full_m[y0 : y0 + ph, x0 : x0 + pw] = m
@@ -250,9 +250,9 @@ class Inference:
             if m.shape != (orig_h, orig_w):
                 m = Image.fromarray(m).resize(
                     (orig_w, orig_h),
-                    Image.Resampling.BILINEAR,
+                    Image.Resampling.NEAREST,
                 )
-                m = (np.array(m) > 0.5).astype(np.uint8)
+                m = np.array(m, dtype=np.uint8)
 
             # Undo Flip
             if is_flipped:
