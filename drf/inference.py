@@ -37,8 +37,11 @@ class Inference:
 
         # Hyperparameters
         self.box_iou_threshold = args.box_iou_threshold
+        self.box_ios_threshold = args.box_ios_threshold
         self.mask_iou_threshold = args.mask_iou_threshold
+        self.mask_ios_threshold = args.mask_ios_threshold
         self.mask_voting_threshold = args.mask_voting_threshold
+        self.graph_based_fusion = args.graph_based_fusion
         self.use_tta = args.tta
         self.use_upscale = args.upscale
         self.use_sahi = args.sahi
@@ -100,7 +103,7 @@ class Inference:
             self._append_predictions(final_pred, sahi_pred)
 
         # 5. Apply Mask Fusion
-        return self._apply_mask_fusion(final_pred)
+        return self._mask_fusion(final_pred)
 
     def _get_slices(self, img_w: int, img_h: int) -> list:
         stride = max(1, int(self.sahi_slice_size * (1 - self.sahi_overlap_ratio)))
@@ -274,7 +277,7 @@ class Inference:
         target.bbox_scores.extend(source.bbox_scores)
         target.masks.extend(source.masks)
 
-    def _compute_box_iou(self, box1: list, box2: list) -> float:
+    def _compute_box_iou_ios(self, box1: list, box2: list) -> tuple[float, float]:
         x1, y1, w1, h1 = box1
         x2, y2, w2, h2 = box2
 
@@ -285,19 +288,23 @@ class Inference:
 
         inter_w = max(0, xx2 - xx1)
         inter_h = max(0, yy2 - yy1)
+
         inter_area = inter_w * inter_h
-
         union_area = (w1 * h1) + (w2 * h2) - inter_area
-        return inter_area / (union_area + 1e-6)
+        if union_area == 0:
+            return 0.0, 0.0
+        smaller_area = min(w1 * h1, w2 * h2)
+        return float(inter_area / union_area), float(inter_area / smaller_area)
 
-    def _compute_mask_iou(self, mask1: np.ndarray, mask2: np.ndarray) -> float:
+    def _compute_mask_iou_ios(self, mask1: np.ndarray, mask2: np.ndarray) -> tuple[float, float]:
         intersection = np.logical_and(mask1, mask2).sum()
-        union = np.logical_or(mask1, mask2).sum()
-        if union == 0:
-            return 0.0
-        return float(intersection / union)
+        union_area = np.logical_or(mask1, mask2).sum()
+        if union_area == 0:
+            return 0.0, 0.0
+        smaller_area = min(mask1.sum(), mask2.sum())
+        return float(intersection / union_area), float(intersection / smaller_area)
 
-    def _apply_mask_fusion(self, predictions: Prediction2D) -> Prediction2D:
+    def _mask_fusion(self, predictions: Prediction2D) -> Prediction2D:
         if not predictions.bboxes:
             return predictions
 
@@ -314,30 +321,56 @@ class Inference:
             scores = np.array([predictions.bbox_scores[i] for i in indices])
             decoded_masks = [all_decoded_masks[i] for i in indices]
 
-            sort_idx = np.argsort(scores)[::-1]
-            boxes = boxes[sort_idx]
-            scores = scores[sort_idx]
-            decoded_masks = [decoded_masks[i] for i in sort_idx]
+            if self.graph_based_fusion:
+                # Graph-based grouping
+                n   = len(indices)
+                adj = {i: set() for i in range(n)}
+                for i in range(n):
+                    for j in range(i + 1, n):
+                        box_iou, box_ios = self._compute_box_iou_ios(boxes[i], boxes[j])
+                        if box_iou >= self.box_iou_threshold or box_ios >= self.box_ios_threshold:
+                            mask_iou, mask_ios = self._compute_mask_iou_ios(decoded_masks[i], decoded_masks[j])
+                            if mask_iou >= self.mask_iou_threshold or mask_ios >= self.mask_ios_threshold:
+                                adj[i].add(j)
+                                adj[j].add(i)
 
-            groups = []
-            for i in range(len(boxes)):
-                matched = False
-                for g in groups:
-                    if (
-                        self._compute_box_iou(boxes[i], boxes[g[0]])
-                        > self.box_iou_threshold
-                    ):
+                visited = [False] * n
+                groups  = []
+                for start in range(n):
+                    if visited[start]:
+                        continue
+                    component, queue = [], [start]
+                    while queue:
+                        node = queue.pop()
+                        if visited[node]:
+                            continue
+                        visited[node] = True
+                        component.append(node)
+                        queue.extend(adj[node] - set(component))
+                    groups.append(component)
+            else:
+                # Greedy grouping based on sorted scores
+                sort_idx = np.argsort(scores)[::-1]
+                boxes = boxes[sort_idx]
+                scores = scores[sort_idx]
+                decoded_masks = [decoded_masks[i] for i in sort_idx]
+
+                groups = []
+                for i in range(len(boxes)):
+                    matched = False
+                    for g in groups:
+                        box_iou, box_ios = self._compute_box_iou_ios(boxes[i], boxes[g[0]])
                         if (
-                            self._compute_mask_iou(
-                                decoded_masks[i], decoded_masks[g[0]]
-                            )
-                            > self.mask_iou_threshold
+                            box_iou > self.box_iou_threshold
+                            or box_ios > self.box_ios_threshold
                         ):
-                            g.append(i)
-                            matched = True
-                            break
-                if not matched:
-                    groups.append([i])
+                            mask_iou, mask_ios = self._compute_mask_iou_ios(decoded_masks[i], decoded_masks[g[0]])
+                            if (mask_iou > self.mask_iou_threshold or mask_ios > self.mask_ios_threshold):
+                                g.append(i)
+                                matched = True
+                                break
+                    if not matched:
+                        groups.append([i])
 
             for g in groups:
                 g_scores = scores[g]
@@ -417,16 +450,33 @@ def main():
         help="Box IoU threshold for preliminary grouping, 0-1 (default: 0.30)",
     )
     parser.add_argument(
+        "--box_ios_threshold",
+        type=float,
+        default=1.0,
+        help="Box IoS threshold for preliminary grouping, 0-1 (default: 1.0, only consider IoU)",
+    )
+    parser.add_argument(
         "--mask_iou_threshold",
         type=float,
         default=0.30,
         help="Mask IoU threshold for precise pixel grouping, 0-1 (default: 0.30)",
     )
     parser.add_argument(
+        "--mask_ios_threshold",
+        type=float,
+        default=1.0,
+        help="Mask IoS threshold for precise pixel grouping, 0-1 (default: 1.0, only consider IoU)",
+    )
+    parser.add_argument(
         "--mask_voting_threshold",
         type=float,
         default=0.20,
         help="Pixel voting threshold for mask fusion, 0-1 (default: 0.20)",
+    )
+    parser.add_argument(
+        "--graph-based-fusion",
+        action="store_true",
+        help="Enable graph-based fusion for mask refinement",
     )
     parser.add_argument(
         "--tta",
